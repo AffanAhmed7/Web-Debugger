@@ -5,10 +5,12 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    sourcemap: true,
     rollupOptions: {
       input: {
         content: resolve(__dirname, 'src/content/index.ts'),
         background: resolve(__dirname, 'src/background/index.ts'),
+        popup: resolve(__dirname, 'popup.html'),
       },
       output: {
         entryFileNames: 'assets/[name].js',

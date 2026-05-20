@@ -38,10 +38,29 @@ import { detectFramework } from './frameworkDetector';
 import { PluginSystem, SEOPlugin, SecurityPlugin } from './pluginSystem';
 
 export const pluginSystem = new PluginSystem();
-pluginSystem.register(SEOPlugin);
-pluginSystem.register(SecurityPlugin);
+let pluginsRegistered = false;
+if (!pluginsRegistered) {
+  pluginSystem.register(SEOPlugin);
+  pluginSystem.register(SecurityPlugin);
+  pluginsRegistered = true;
+}
 
-export async function getElementInfo(el: HTMLElement): Promise<ElementInfo> {
+function cleanBackgroundValue(val: string): string {
+  // Common browser defaults that clutter the shorthand
+  const defaults = [
+    'repeat', 'scroll', '0% 0%', 'padding-box', 'border-box', '/ auto', 'rgba(0, 0, 0, 0)', 'transparent', 'none'
+  ];
+  let cleaned = val;
+  defaults.forEach(d => {
+    const regex = new RegExp(`\\b${d.replace('%', '\\%').replace('(', '\\(').replace(')', '\\)')}\\b`, 'g');
+    cleaned = cleaned.replace(regex, '');
+  });
+  
+  cleaned = cleaned.trim().replace(/\s+/g, ' ');
+  return cleaned === '' ? 'none' : cleaned;
+}
+
+export async function getElementInfo(el: HTMLElement, deep: boolean = false): Promise<ElementInfo> {
   const style = window.getComputedStyle(el);
   const info: ElementInfo = {
     tagName: el.tagName.toLowerCase(),
@@ -50,6 +69,7 @@ export async function getElementInfo(el: HTMLElement): Promise<ElementInfo> {
     metrics: getElementMetrics(el),
     computedStyles: {
       color: style.color,
+      background: cleanBackgroundValue(style.background),
       backgroundColor: style.backgroundColor,
       fontSize: style.fontSize,
       fontWeight: style.fontWeight,
@@ -58,15 +78,17 @@ export async function getElementInfo(el: HTMLElement): Promise<ElementInfo> {
       display: style.display,
       margin: style.margin,
       padding: style.padding,
+      opacity: style.opacity,
+      borderRadius: style.borderRadius,
     },
     analysis: {
-      rules: getAppliedRules(el),
-      anomalies: detectAnomalies(el),
-      a11y: auditAccessibility(el),
+      rules: deep ? getAppliedRules(el) : [],
+      anomalies: deep ? detectAnomalies(el) : [],
+      a11y: deep ? auditAccessibility(el) : [],
     },
     performance: getPerformanceData(el),
     framework: detectFramework(),
-    plugins: await pluginSystem.runAll(el, {}),
+    plugins: deep ? await pluginSystem.runAll(el, {}) : [],
   };
   return info;
 }

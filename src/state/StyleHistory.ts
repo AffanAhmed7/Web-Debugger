@@ -31,7 +31,13 @@ export class StyleHistory {
 
   private applyMutation(mutation: StyleMutation, isUndo: boolean) {
     const { element, property, oldValue, newValue } = mutation;
-    (element.style as any)[property] = isUndo ? oldValue : newValue;
+    const value = isUndo ? oldValue : newValue;
+    const kebab = String(property).replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+    if (value) {
+      element.style.setProperty(kebab, value, 'important');
+    } else {
+      element.style.removeProperty(kebab);
+    }
   }
 
   public clear() {

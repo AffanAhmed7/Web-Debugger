@@ -3,8 +3,13 @@
   "name": "Universal Web Debugger Overlay",
   "version": "1.0.0",
   "description": "High-performance hover inspector with zero interference.",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
   "background": {
     "service_worker": "assets/background.js"
   },
@@ -16,6 +21,12 @@
     }
   ],
   "action": {
-    "default_title": "Universal Web Debugger"
+    "default_title": "Universal Debugger",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
   }
 }

@@ -34,8 +34,8 @@ export class Inspector {
     this.tooltip = new Tooltip(root);
     this.history = new StyleHistory();
     this.recorder = new SessionRecorder();
-    this.annotator = new Annotator(document.documentElement);
-    this.palette = new CommandPalette(document.documentElement);
+    this.annotator = new Annotator(root);
+    this.palette = new CommandPalette(root);
 
     this.palette.registerCommands([
       { id: 'toggle-overlay', name: 'Toggle Overlay Visibility', shortcut: 'V', action: () => this.container.toggle() },
@@ -61,6 +61,11 @@ export class Inspector {
     this.onMouseMove = throttle(this.onMouseMove.bind(this), 16);
     this.onClick = this.onClick.bind(this);
     this.onKeyDown = this.onKeyDown.bind(this);
+    this.updateOnScroll = throttle(this.updateOnScroll.bind(this), 16);
+
+    window.addEventListener('relock', (e: any) => {
+      if (e.detail) this.lock(e.detail);
+    });
   }
 
   private toggleRecording() {
@@ -73,9 +78,13 @@ export class Inspector {
   }
 
   private async captureViewport() {
-    const response = await chrome.runtime.sendMessage({ action: 'capture' });
-    if (response?.dataUrl) {
-      this.annotator.show(response.dataUrl);
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'capture' });
+      if (response?.dataUrl) {
+        this.annotator.show(response.dataUrl);
+      }
+    } catch (e) {
+      console.error('Failed to capture viewport:', e);
     }
   }
 
@@ -98,27 +107,54 @@ export class Inspector {
   private async onMouseMove(e: MouseEvent) {
     if (this.isLocked) return;
 
-    const target = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement;
+    const target = this.getDeepestElementAt(e.clientX, e.clientY);
 
     if (!target || target === this.currentElement) {
       if (!target) this.hide();
       return;
     }
 
-    if (target.id === 'universal-web-debugger-root') return;
-
     this.currentElement = target;
     await this.update();
   }
 
-  private async onClick(e: MouseEvent) {
-    // If clicking inside our side panel, don't intercept
-    if ((e.target as HTMLElement).closest('.side-panel')) return;
+  /**
+   * Returns the most specific (deepest in DOM tree) real page element at the
+   * given viewport coordinates, excluding our own overlay host.
+   *
+   * elementsFromPoint is sorted by z-order (top layer first), so a large
+   * section with a high stacking context beats its own children. Sorting by
+   * DOM depth instead gives us the actual child the cursor is over.
+   */
+  private getDeepestElementAt(x: number, y: number): HTMLElement | null {
+    const hostId = 'universal-web-debugger-root';
 
-    if (!this.isLocked && this.currentElement) {
+    const candidates = (document.elementsFromPoint(x, y) as HTMLElement[])
+      .filter(el => el.id !== hostId && !el.closest('#' + hostId)
+                 && el !== document.documentElement && el !== document.body);
+
+    if (candidates.length === 0) return null;
+
+    // Depth = number of ancestors — deepest element = most specific child
+    const depth = (el: HTMLElement) => {
+      let d = 0;
+      let cur: HTMLElement | null = el;
+      while (cur) { d++; cur = cur.parentElement; }
+      return d;
+    };
+
+    return candidates.reduce((best, el) => depth(el) >= depth(best) ? el : best);
+  }
+
+  private async onClick(e: MouseEvent) {
+    // If clicking inside our root, don't intercept
+    const target = e.target as HTMLElement;
+    if (!target || target.closest('#universal-web-debugger-root')) return;
+
+    if (!this.isLocked) {
       e.preventDefault();
       e.stopPropagation();
-      await this.lock(this.currentElement);
+      await this.lock(target);
     }
   }
 
@@ -142,7 +178,7 @@ export class Inspector {
     this.lockedElement = el;
     this.currentElement = el;
     this.tooltip.hide();
-    const info = await getElementInfo(el);
+    const info = await getElementInfo(el, true); // DEEP analysis on lock
     this.sidePanel.update(info, el);
     console.log('🔒 Element locked for inspection');
   }
@@ -151,22 +187,38 @@ export class Inspector {
     this.isLocked = false;
     this.lockedElement = null;
     this.sidePanel.hide();
+    this.hide(); // Hide guides
     console.log('🔓 Element unlocked');
   }
 
-  private updateOnScroll = throttle(() => {
+  private updateOnScroll() {
     if (this.currentElement) {
-      this.update();
+      if (this.isLocked) {
+        this.update();
+      } else {
+        // Lightweight update: just move box overlay
+        this.updateBoxOverlay();
+      }
     }
-  }, 16);
+  }
+
+  private async updateBoxOverlay() {
+    const el = this.lockedElement || this.currentElement;
+    if (!el) return;
+    const info = await getElementInfo(el, false);
+    const issueCount = info.analysis.anomalies.length + info.analysis.a11y.length;
+    this.boxOverlay.update(info.metrics, issueCount);
+    this.tooltip.update(info);
+  }
 
   private async update() {
     const el = this.lockedElement || this.currentElement;
     if (!el) return;
 
     // Fast path: Box model overlay (GPU optimized)
-    const info = await getElementInfo(el);
-    this.boxOverlay.update(info.metrics);
+    const info = await getElementInfo(el, this.isLocked); // Only deep if locked
+    const issueCount = info.analysis.anomalies.length + info.analysis.a11y.length;
+    this.boxOverlay.update(info.metrics, issueCount);
     
     if (!this.isLocked) {
       this.tooltip.update(info);

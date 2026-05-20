@@ -121,6 +121,7 @@ export interface A11yIssue {
 
 export interface ComputedStyles {
   color: string;
+  background: string;
   backgroundColor: string;
   fontSize: string;
   fontWeight: string;
@@ -129,6 +130,8 @@ export interface ComputedStyles {
   display: string;
   margin: string;
   padding: string;
+  opacity: string;
+  borderRadius: string;
 }
 
 export interface StyleMutation {

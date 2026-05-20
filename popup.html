@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Universal Debugger</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@400;600;700&display=swap');
+  </style>
+  <link rel="stylesheet" href="./src/popup/style.css">
+</head>
+<body>
+  <div id="popup-root">
+    <header class="app-header">
+      <h1>UNIVERSAL DEBUGGER</h1>
+    </header>
+
+    <main class="main-content">
+      <section class="power-section">
+        <button id="global-power" class="power-toggle" title="Toggle Extension">
+          <div class="power-inner">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10"/>
+            </svg>
+          </div>
+        </button>
+        <div class="status-label">SYSTEM <span id="system-status">ON</span></div>
+      </section>
+
+      <section class="action-section">
+        <div class="site-info">
+          <span class="label">CURRENT DOMAIN</span>
+          <span id="current-domain" class="value">--</span>
+        </div>
+        <button id="site-toggle" class="site-btn">
+          <span class="btn-text">Pause on this site</span>
+        </button>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <div class="footer-links">
+        <button id="open-docs" class="link-btn">Documentation</button>
+      </div>
+    </footer>
+  </div>
+  <script type="module" src="./src/popup/main.ts"></script>
+</body>
+</html>

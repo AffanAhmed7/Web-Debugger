@@ -7,7 +7,7 @@ export class CommandPalette {
   private commands: Command[] = [];
   private visible: boolean = false;
 
-  constructor(parent: HTMLElement) {
+  constructor(parent: ShadowRoot | HTMLElement) {
     this.el = document.createElement('div');
     this.el.className = 'command-palette hidden';
     
@@ -39,12 +39,17 @@ export class CommandPalette {
     }
   }
 
+  private selectedIndex: number = 0;
+
   private render() {
     const query = this.input.value.toLowerCase();
     const filtered = this.commands.filter(c => c.name.toLowerCase().includes(query));
     
-    this.list.innerHTML = filtered.map(c => `
-      <div class="palette-item" data-id="${c.id}">
+    // Clamp selection
+    if (this.selectedIndex >= filtered.length) this.selectedIndex = Math.max(0, filtered.length - 1);
+
+    this.list.innerHTML = filtered.map((c, i) => `
+      <div class="palette-item ${i === this.selectedIndex ? 'selected' : ''}" data-id="${c.id}" data-index="${i}">
         <span class="command-name">${c.name}</span>
         ${c.shortcut ? `<span class="command-shortcut">${c.shortcut}</span>` : ''}
       </div>
@@ -53,23 +58,49 @@ export class CommandPalette {
     this.list.querySelectorAll('.palette-item').forEach(item => {
       item.addEventListener('click', () => {
         const id = item.getAttribute('data-id');
-        const cmd = this.commands.find(c => c.id === id);
-        if (cmd) {
-          cmd.action();
-          this.toggle();
-        }
+        this.executeCommand(id);
       });
     });
   }
 
+  private executeCommand(id: string | null) {
+    if (!id) return;
+    const cmd = this.commands.find(c => c.id === id);
+    if (cmd) {
+      cmd.action();
+      this.toggle();
+    }
+  }
+
   private attachListeners() {
-    this.input.addEventListener('input', () => this.render());
+    this.input.addEventListener('input', () => {
+      this.selectedIndex = 0;
+      this.render();
+    });
     
-    this.input.addEventListener('keydown', (e) => {
+    this.el.addEventListener('keydown', (e) => {
+      const query = this.input.value.toLowerCase();
+      const filteredCount = this.commands.filter(c => c.name.toLowerCase().includes(query)).length;
+
       if (e.key === 'Escape') this.toggle();
+      
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        this.selectedIndex = (this.selectedIndex + 1) % filteredCount;
+        this.render();
+      }
+      
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        this.selectedIndex = (this.selectedIndex - 1 + filteredCount) % filteredCount;
+        this.render();
+      }
+
       if (e.key === 'Enter') {
-        const first = this.list.querySelector('.palette-item') as HTMLElement;
-        first?.click();
+        e.preventDefault();
+        const selected = this.list.querySelector('.palette-item.selected') as HTMLElement;
+        const id = selected?.getAttribute('data-id');
+        this.executeCommand(id);
       }
     });
 

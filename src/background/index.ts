@@ -1,5 +1,11 @@
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async () => {
   console.log('Universal Web Debugger Overlay Extension Installed');
+  
+  // Initialize default state
+  const state = await chrome.storage.local.get(['enabled', 'blockedDomains']);
+  if (state.enabled === undefined) {
+    await chrome.storage.local.set({ enabled: true, blockedDomains: [] });
+  }
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -7,6 +13,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     chrome.tabs.captureVisibleTab({ format: 'png' }, (dataUrl) => {
       sendResponse({ dataUrl });
     });
-    return true; // Keep channel open for async response
+    return true; 
   }
 });

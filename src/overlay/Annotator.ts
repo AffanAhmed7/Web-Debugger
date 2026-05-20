@@ -4,19 +4,30 @@ export class Annotator {
   private isDrawing: boolean = false;
   private container: HTMLElement;
 
-  constructor(parent: HTMLElement) {
+  constructor(parent: ShadowRoot | HTMLElement) {
     this.container = document.createElement('div');
     this.container.className = 'annotator-container hidden';
     
     this.canvas = document.createElement('canvas');
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
+    this.refreshCanvasSize();
     this.ctx = this.canvas.getContext('2d')!;
     
     this.container.appendChild(this.canvas);
     parent.appendChild(this.container);
 
     this.attachListeners();
+    window.addEventListener('resize', () => this.refreshCanvasSize());
+  }
+
+  private refreshCanvasSize() {
+    const dpr = window.devicePixelRatio || 1;
+    this.canvas.width = window.innerWidth * dpr;
+    this.canvas.height = window.innerHeight * dpr;
+    this.canvas.style.width = `${window.innerWidth}px`;
+    this.canvas.style.height = `${window.innerHeight}px`;
+    if (this.ctx) {
+      this.ctx.scale(dpr, dpr);
+    }
   }
 
   public show(imageDataUrl: string) {
